@@ -86,42 +86,117 @@ class m180316_130028_Craft3Upgrade extends Migration
         }
 
         $calTable = '{{%calendar_calendars}}';
-        $calI18nTable = '{{%calendar_calendars_i18n}}';
-        $i18nResults = (new Query())
-            ->select(
-                [
-                    $calI18nTable.'.id',
-                    $calI18nTable.'.calendarId',
-                    $calI18nTable.'.locale__siteId',
-                    $calI18nTable.'.enabledByDefault',
-                    $calI18nTable.'.eventUrlFormat',
-                    $calTable.'.hasUrls',
-                    $calTable.'.eventTemplate',
-                ]
-            )
-            ->from($calI18nTable)
-            ->innerJoin($calTable, '{{%calendar_calendars}}.id = {{%calendar_calendars_i18n}}.calendarId')
-            ->all()
-        ;
 
-        foreach ($i18nResults as $i18n) {
-            $this->insert(
-                '{{%calendar_calendar_sites}}',
-                [
-                    'calendarId' => $i18n['calendarId'],
-                    'siteId' => $i18n['locale__siteId'],
-                    'enabledByDefault' => $i18n['enabledByDefault'],
-                    'hasUrls' => $i18n['hasUrls'],
-                    'uriFormat' => $i18n['eventUrlFormat'],
-                    'template' => $i18n['eventTemplate'],
-                ]
+        if ($this->db->tableExists('{{%calendar_calendars_i18n}}')) {
+            $calI18nTable = '{{%calendar_calendars_i18n}}';
+            $i18nResults = (new Query())
+                ->select(
+                    [
+                        $calI18nTable.'.id',
+                        $calI18nTable.'.calendarId',
+                        $calI18nTable.'.locale__siteId',
+                        $calI18nTable.'.enabledByDefault',
+                        $calI18nTable.'.eventUrlFormat',
+                        $calTable.'.hasUrls',
+                        $calTable.'.eventTemplate',
+                    ]
+                )
+                ->from($calI18nTable)
+                ->innerJoin($calTable, '{{%calendar_calendars}}.id = {{%calendar_calendars_i18n}}.calendarId')
+                ->all()
+            ;
+
+            foreach ($i18nResults as $i18n) {
+                $this->insert(
+                    '{{%calendar_calendar_sites}}',
+                    [
+                        'calendarId' => $i18n['calendarId'],
+                        'siteId' => $i18n['locale__siteId'],
+                        'enabledByDefault' => $i18n['enabledByDefault'],
+                        'hasUrls' => $i18n['hasUrls'],
+                        'uriFormat' => $i18n['eventUrlFormat'],
+                        'template' => $i18n['eventTemplate'],
+                    ]
+                );
+            }
+
+            $this->dropTable($calI18nTable);
+        }
+
+        if ($this->db->columnExists($calTable, 'hasUrls')) {
+            $this->dropColumn($calTable, 'hasUrls');
+        }
+
+        if ($this->db->columnExists($calTable, 'eventTemplate')) {
+            $this->dropColumn($calTable, 'eventTemplate');
+        }
+        
+        if (!$this->db->columnExists($calTable, 'color')) {
+            $this->addColumn(
+                $calTable,
+                'color',
+                $this->string(10)->notNull()
             );
         }
 
-        $this->dropTable($calI18nTable);
+        if (!$this->db->columnExists($calTable, 'fieldLayoutId')) {
+            $this->addColumn(
+                $calTable,
+                'fieldLayoutId',
+                $this->integer()
+            );
+            $this->addForeignKey(null, $calTable, 'fieldLayoutId', 'fieldlayouts', 'id', ForeignKey::SET_NULL);
+        }
 
-        $this->dropColumn($calTable, 'hasUrls');
-        $this->dropColumn($calTable, 'eventTemplate');
+        if (!$this->db->columnExists($calTable, 'titleFormat')) {
+            $this->addColumn(
+                $calTable,
+                'titleFormat',
+                $this->string()
+            );
+        }
+
+        if (!$this->db->columnExists($calTable, 'titleLabel')) {
+            $this->addColumn(
+                $calTable,
+                'titleLabel',
+                $this->string()->defaultValue('Title')
+            );
+        }
+
+        if (!$this->db->columnExists($calTable, 'hasTitleField')) {
+            $this->addColumn(
+                $calTable,
+                'hasTitleField',
+                $this->boolean()->notNull()->defaultValue(true)
+            );
+        }
+
+        if (!$this->db->columnExists($calTable, 'descriptionFieldHandle')) {
+            $this->addColumn(
+                $calTable,
+                'descriptionFieldHandle',
+                $this->string()
+            );
+        }
+
+        if (!$this->db->columnExists($calTable, 'locationFieldHandle')) {
+            $this->addColumn(
+                $calTable,
+                'locationFieldHandle',
+                $this->string()
+            );
+        }
+
+        if (!$this->db->columnExists($calTable, 'icsHash')) {
+            $this->addColumn(
+                $calTable,
+                'icsHash',
+                $this->string()
+            );
+
+            $this->createIndex(null, $calTable, ['icsHash'], true);
+        }
 
         return true;
     }
